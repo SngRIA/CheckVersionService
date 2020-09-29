@@ -3,6 +3,7 @@ using CheckVersionService.Interfaces;
 using CheckVersionService.Models;
 using log4net;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -24,6 +25,7 @@ namespace CheckVersionService.Readers
         /// Подгрузка актуальных данных из директории
         /// </summary>
         /// <param name="folder">Директория подгрузки</param>
+        /// <param name="extension">Расширение файла, указывать без точки</param>
         /// <returns></returns>
         public async Task<FolderInfo> GetActualHistory(string folder)
         {
@@ -55,21 +57,35 @@ namespace CheckVersionService.Readers
         }
 
 
+        private IEnumerable<string> GetExtensions(string directory)
+        {
+            ICollection<string> fileExtensions = new List<string>();
+
+            foreach (var file in Directory.GetFiles(directory)) // Поиск расширений файла
+            {
+                int extStartIndex = file.IndexOf('.');
+                fileExtensions.Add(file.Substring(extStartIndex));
+            }
+
+            return fileExtensions;
+        }
+
         /// <summary>
         /// Подгрузка файлов из кэша
         /// </summary>
         /// <param name="folder">Директория подгрузки</param>
+        /// <param name="extension">Расширение файла, указывать без точки</param>
         /// <returns></returns>
         public async Task<FolderInfo> GetCachedFilesHistory(string folder)
         {
-            if (Directory.Exists(folder))
+            if (!Directory.Exists(folder))
             {
                 _log.Error($"Folder {folder} is not found");
                 return FolderInfo.Empty;
             }
 
             FolderInfo folderInfo = new FolderInfo(folder);
-
+            
             foreach (var cacheDirectory in Directory.GetDirectories(folder)) // Получаем данные
             {
                 if (cacheDirectory.EndsWith("txt", StringComparison.OrdinalIgnoreCase)
@@ -82,24 +98,30 @@ namespace CheckVersionService.Readers
                 _log.Debug($"Get cache from {cacheDirectory}");
                 // {file}.* => {file}/[0...x] - паттерн кэша
 
-                var lastFilePath = Directory.GetFiles(cacheDirectory).LastOrDefault(); // Получаем последний файл
-                if (lastFilePath != null)
+                IEnumerable<string> extensions = GetExtensions(cacheDirectory);
+                foreach (var ext in extensions) // Поиск файлов по расширению
                 {
-                    var fileExtPath = lastFilePath.Split('.').LastOrDefault(); // Получаем расширение файла
-                    var fileWithExtension = cacheDirectory + '.' + fileExtPath; // Полный путь до нужного файла
 
-                    _log.Debug($"Add cached file [{cacheDirectory}] to memory");
-                    var fileInfo = new FileInfo(fileWithExtension);
+                    var lastFilePath = Directory.GetFiles(cacheDirectory, $"*.{ext}").LastOrDefault(); // Получаем последний файл
+                    if (lastFilePath != null)
+                    {
+                        var fileExtPath = lastFilePath.Split('.').LastOrDefault(); // Получаем расширение файла
+                        var fileWithExtension = cacheDirectory + '.' + fileExtPath; // Полный путь до нужного файла
 
-                    fileInfo.Hash = await _check.GetCalcValue(fileInfo);
-                    fileInfo.ChangeStatus = FileChangeStatus.Nothing;
-                    fileInfo.ChangeTime = File.GetLastWriteTime(fileWithExtension);
+                        _log.Debug($"Add cached file [{cacheDirectory}] to memory");
+                        var fileInfo = new FileInfo(fileWithExtension);
 
-                    folderInfo.Files.Add(fileInfo);
-                }
-                else
-                {
-                    _log.Error($"Folder {folder} is not contains cache files");
+                        fileInfo.Hash = await _check.GetCalcValue(fileInfo);
+                        fileInfo.ChangeStatus = FileChangeStatus.Nothing;
+                        fileInfo.ChangeTime = File.GetLastWriteTime(fileWithExtension);
+
+                        folderInfo.Files.Add(fileInfo);
+                    }
+                    else
+                    {
+                        _log.Error($"Folder {folder} is not contains cache files");
+                    }
+
                 }
             }
 

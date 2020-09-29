@@ -61,7 +61,7 @@ namespace CheckVersionService
             _timer = new Timer(async (state) => await StartTraceAsync(), folder, 0, (int)period.TotalMilliseconds);
         }
 
-        private FileInfo GetFileFromCollection(FileInfo file, ICollection<FileInfo> collection) // пере
+        private FileInfo GetFileEqualsFileCache(FileInfo file, ICollection<FileInfo> collection)
         {
             FileInfo info = new FileInfo(file.Path);
 
@@ -88,7 +88,7 @@ namespace CheckVersionService
 
             foreach (var cachedFile in _cachedFolderInfo.Files)
             {
-                FileInfo actualFile = GetFileFromCollection(cachedFile, _actualFolderInfo.Files); // Получаем из актуальной коллекции эквивалент кэшированного файла 
+                FileInfo actualFile = GetFileEqualsFileCache(cachedFile, _actualFolderInfo.Files); // Получаем из актуальной коллекции эквивалент кэшированного файла 
 
                 if(!File.Exists(actualFile.Path)) // Проверяет существует ли файл
                 {

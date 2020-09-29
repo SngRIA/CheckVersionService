@@ -33,7 +33,7 @@ namespace CheckVersionService.Saves
                 await Task.Factory.StartNew(() => Directory.CreateDirectory(clearPath));
             }
 
-            string[] files = await Task.Factory.StartNew(() => Directory.GetFiles(clearPath));
+            string[] files = await Task.Factory.StartNew(() => Directory.GetFiles(clearPath, $"*.{ext}"));
 
             string newFileName = files.Length.ToString(); // Получаем количество файлов в директории
             await Task.Factory.StartNew(() => File.Copy(fileInfo.Path, $"{clearPath}/{newFileName}.{ext}")); // Копируем новую весию файла
